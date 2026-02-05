@@ -29,14 +29,12 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-# При запуске через pipe (curl ... | bash) stdin — не клавиатура, запросы «съедают» данные и падают.
-# Перенаправляем ввод на терминал, чтобы read спрашивал у вас.
-if [[ ! -t 0 ]]; then
-   if [[ ! -e /dev/tty ]]; then
-      log_error "Нет доступа к терминалу. Скачайте скрипт и запустите: curl -sSL URL -o server-setup.sh && chmod +x server-setup.sh && sudo ./server-setup.sh"
-      exit 1
-   fi
-   exec </dev/tty
+# При запуске через pipe (curl ... | sudo bash) stdin — вывод curl, не клавиатура.
+# Читаем ввод только с терминала.
+TTY="/dev/tty"
+if [[ ! -e "$TTY" ]]; then
+   log_error "Нет доступа к терминалу. Запустите в интерактивной SSH-сессии."
+   exit 1
 fi
 
 echo "=========================================="
@@ -45,7 +43,7 @@ echo "=========================================="
 echo ""
 
 # --- 1. Запрос порта SSH ---
-read -p "Введите порт для SSH (по умолчанию 22): " SSH_PORT
+read -p "Введите порт для SSH (по умолчанию 22): " SSH_PORT <"$TTY"
 SSH_PORT=${SSH_PORT:-22}
 
 if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [[ "$SSH_PORT" -lt 1 ]] || [[ "$SSH_PORT" -gt 65535 ]]; then
@@ -54,7 +52,7 @@ if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [[ "$SSH_PORT" -lt 1 ]] || [[ "$SSH_PORT" 
 fi
 
 # --- 2. Имя нового пользователя ---
-read -p "Введите имя нового пользователя: " NEW_USER
+read -p "Введите имя нового пользователя: " NEW_USER <"$TTY"
 if [[ -z "$NEW_USER" ]]; then
     log_error "Имя пользователя не может быть пустым."
     exit 1
@@ -69,13 +67,13 @@ echo ""
 echo "Пароль для пользователя $NEW_USER:"
 echo "  1) Сгенерировать случайный пароль"
 echo "  2) Ввести пароль вручную"
-read -p "Выбор (1 или 2): " PASSWORD_CHOICE
+read -p "Выбор (1 или 2): " PASSWORD_CHOICE <"$TTY"
 
 NEW_PASSWORD=""
 if [[ "$PASSWORD_CHOICE" == "2" ]]; then
-    read -sp "Введите пароль: " NEW_PASSWORD
+    read -sp "Введите пароль: " NEW_PASSWORD <"$TTY"
     echo ""
-    read -sp "Повторите пароль: " NEW_PASSWORD_CONFIRM
+    read -sp "Повторите пароль: " NEW_PASSWORD_CONFIRM <"$TTY"
     echo ""
     if [[ "$NEW_PASSWORD" != "$NEW_PASSWORD_CONFIRM" ]]; then
         log_error "Пароли не совпадают."
@@ -98,7 +96,7 @@ fi
 echo ""
 echo "Дополнительные порты, которые нужно открыть (кроме SSH)."
 echo "Примеры: 80 443 (веб), 3306 (MySQL), через пробел или пусто — только SSH."
-read -p "Введите порты или Enter: " EXTRA_PORTS_INPUT
+read -p "Введите порты или Enter: " EXTRA_PORTS_INPUT <"$TTY"
 # Собираем список: SSH + введённые (без дубликатов)
 ALLOW_PORTS="$SSH_PORT"
 if [[ -n "$EXTRA_PORTS_INPUT" ]]; then
@@ -110,7 +108,7 @@ if [[ -n "$EXTRA_PORTS_INPUT" ]]; then
 fi
 
 echo ""
-read -p "Продолжить настройку? (y/n): " CONFIRM
+read -p "Продолжить настройку? (y/n): " CONFIRM <"$TTY"
 if [[ ! "$CONFIRM" =~ ^[yYдД] ]]; then
     log_info "Отменено."
     exit 0

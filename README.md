@@ -2,6 +2,8 @@
 
 Скрипт для базовой настройки VDS: обновление системы, SSH, пользователь с sudo, фаервол, Fail2Ban.
 
+**Запуск (одной командой с любого сервера):**
+
 ```bash
 curl -sSL "https://raw.githubusercontent.com/TheNotus/FSet/main/server-setup.sh" | sudo bash
 ```
