@@ -157,21 +157,21 @@ fi
 cp "$SSH_CONFIG" "$BACKUP_SSH"
 log_info "Резервная копия SSH конфига: $BACKUP_SSH"
 
-# Порт
+# Порт (sed -E для #? в regex)
 if grep -qE "^#?Port " "$SSH_CONFIG"; then
-    sed -i "s/^#?Port .*/Port $SSH_PORT/" "$SSH_CONFIG"
+    sed -i -E "s/^#?Port .*/Port $SSH_PORT/" "$SSH_CONFIG"
 else
     echo "Port $SSH_PORT" >> "$SSH_CONFIG"
 fi
 
 # Отключить вход под root
 if grep -qE "^#?PermitRootLogin " "$SSH_CONFIG"; then
-    sed -i "s/^#?PermitRootLogin .*/PermitRootLogin no/" "$SSH_CONFIG"
+    sed -i -E "s/^#?PermitRootLogin .*/PermitRootLogin no/" "$SSH_CONFIG"
 else
     echo "PermitRootLogin no" >> "$SSH_CONFIG"
 fi
 
-# Рекомендуемые опции безопасности (если ещё не заданы)
+# Рекомендуемые опции (если ещё не заданы)
 for opt in "PasswordAuthentication yes" "PubkeyAuthentication yes"; do
     key="${opt%% *}"
     if ! grep -qE "^#?${key} " "$SSH_CONFIG"; then
@@ -179,12 +179,14 @@ for opt in "PasswordAuthentication yes" "PubkeyAuthentication yes"; do
     fi
 done
 
-# Проверка конфига sshd
-if sshd -t 2>/dev/null; then
+# Проверка конфига sshd (показываем ошибку при сбое)
+SSHD_ERR=$(sshd -t 2>&1) || true
+if [[ -z "$SSHD_ERR" ]]; then
     systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null
     log_info "SSH перезапущен. Порт: $SSH_PORT, root-вход отключён."
 else
-    log_error "Ошибка в конфиге SSH. Восстановите из $BACKUP_SSH"
+    log_error "Ошибка в конфиге SSH: $SSHD_ERR"
+    log_error "Восстановлен бэкап: $BACKUP_SSH"
     cp "$BACKUP_SSH" "$SSH_CONFIG"
     exit 1
 fi
