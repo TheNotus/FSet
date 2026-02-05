@@ -179,6 +179,10 @@ for opt in "PasswordAuthentication yes" "PubkeyAuthentication yes"; do
     fi
 done
 
+# Каталог для privilege separation (нужен для sshd -t и для демона)
+mkdir -p /run/sshd
+chmod 755 /run/sshd
+
 # Проверка конфига sshd (показываем ошибку при сбое)
 SSHD_ERR=$(sshd -t 2>&1) || true
 if [[ -z "$SSHD_ERR" ]]; then
