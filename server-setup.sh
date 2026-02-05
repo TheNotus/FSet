@@ -29,6 +29,16 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# При запуске через pipe (curl ... | bash) stdin — не клавиатура, запросы «съедают» данные и падают.
+# Перенаправляем ввод на терминал, чтобы read спрашивал у вас.
+if [[ ! -t 0 ]]; then
+   if [[ ! -e /dev/tty ]]; then
+      log_error "Нет доступа к терминалу. Скачайте скрипт и запустите: curl -sSL URL -o server-setup.sh && chmod +x server-setup.sh && sudo ./server-setup.sh"
+      exit 1
+   fi
+   exec </dev/tty
+fi
+
 echo "=========================================="
 echo "  Первоначальная настройка сервера"
 echo "=========================================="
