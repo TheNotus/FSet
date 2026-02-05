@@ -43,7 +43,8 @@ echo "=========================================="
 echo ""
 
 # --- 1. Запрос порта SSH ---
-read -p "Введите порт для SSH (по умолчанию 22): " SSH_PORT <"$TTY"
+echo "Введите порт для SSH (по умолчанию 22):"
+read SSH_PORT <"$TTY"
 SSH_PORT=${SSH_PORT:-22}
 
 if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [[ "$SSH_PORT" -lt 1 ]] || [[ "$SSH_PORT" -gt 65535 ]]; then
@@ -52,7 +53,8 @@ if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]] || [[ "$SSH_PORT" -lt 1 ]] || [[ "$SSH_PORT" 
 fi
 
 # --- 2. Имя нового пользователя ---
-read -p "Введите имя нового пользователя: " NEW_USER <"$TTY"
+echo "Введите имя нового пользователя:"
+read NEW_USER <"$TTY"
 if [[ -z "$NEW_USER" ]]; then
     log_error "Имя пользователя не может быть пустым."
     exit 1
@@ -67,13 +69,16 @@ echo ""
 echo "Пароль для пользователя $NEW_USER:"
 echo "  1) Сгенерировать случайный пароль"
 echo "  2) Ввести пароль вручную"
-read -p "Выбор (1 или 2): " PASSWORD_CHOICE <"$TTY"
+echo "Выбор (1 или 2):"
+read PASSWORD_CHOICE <"$TTY"
 
 NEW_PASSWORD=""
 if [[ "$PASSWORD_CHOICE" == "2" ]]; then
-    read -sp "Введите пароль: " NEW_PASSWORD <"$TTY"
+    echo "Введите пароль:"
+    read -s NEW_PASSWORD <"$TTY"
     echo ""
-    read -sp "Повторите пароль: " NEW_PASSWORD_CONFIRM <"$TTY"
+    echo "Повторите пароль:"
+    read -s NEW_PASSWORD_CONFIRM <"$TTY"
     echo ""
     if [[ "$NEW_PASSWORD" != "$NEW_PASSWORD_CONFIRM" ]]; then
         log_error "Пароли не совпадают."
@@ -84,11 +89,8 @@ if [[ "$PASSWORD_CHOICE" == "2" ]]; then
         exit 1
     fi
 else
-    # Генерация пароля (буквы + цифры, 16 символов)
     NEW_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)
-    if [[ -z "$NEW_PASSWORD" ]]; then
-        NEW_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 16)
-    fi
+    [[ -z "$NEW_PASSWORD" ]] && NEW_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 16)
     log_info "Сгенерирован пароль (сохраните его!): $NEW_PASSWORD"
 fi
 
@@ -96,8 +98,8 @@ fi
 echo ""
 echo "Дополнительные порты, которые нужно открыть (кроме SSH)."
 echo "Примеры: 80 443 (веб), 3306 (MySQL), через пробел или пусто — только SSH."
-read -p "Введите порты или Enter: " EXTRA_PORTS_INPUT <"$TTY"
-# Собираем список: SSH + введённые (без дубликатов)
+echo "Введите порты или Enter:"
+read EXTRA_PORTS_INPUT <"$TTY"
 ALLOW_PORTS="$SSH_PORT"
 if [[ -n "$EXTRA_PORTS_INPUT" ]]; then
     for p in $EXTRA_PORTS_INPUT; do
@@ -108,7 +110,8 @@ if [[ -n "$EXTRA_PORTS_INPUT" ]]; then
 fi
 
 echo ""
-read -p "Продолжить настройку? (y/n): " CONFIRM <"$TTY"
+echo "Продолжить настройку? (y/n):"
+read CONFIRM <"$TTY"
 if [[ ! "$CONFIRM" =~ ^[yYдД] ]]; then
     log_info "Отменено."
     exit 0
@@ -137,8 +140,6 @@ else
     log_info "Пользователь $NEW_USER уже есть. Устанавливаю новый пароль..."
     echo "$NEW_USER:$NEW_PASSWORD" | chpasswd
 fi
-
-# Права sudo (без пароля для удобства; при необходимости замените на NOPASSWD)
 SUDOERS_FILE="/etc/sudoers.d/$NEW_USER"
 echo "$NEW_USER ALL=(ALL) ALL" > "$SUDOERS_FILE"
 chmod 440 "$SUDOERS_FILE"
@@ -214,7 +215,6 @@ configure_firewall() {
         log_info "firewalld настроен. Открыты только: $ALLOW_PORTS"
         return 0
     fi
-    # Установка ufw при наличии apt
     if command -v apt-get &>/dev/null && ! command -v ufw &>/dev/null; then
         log_info "Установка UFW..."
         DEBIAN_FRONTEND=noninteractive apt-get install -y ufw -qq
@@ -225,9 +225,7 @@ configure_firewall() {
     return 1
 }
 
-if configure_firewall; then
-    :
-else
+if configure_firewall; then true; else
     log_warn "Проверьте доступ по SSH на порту $SSH_PORT перед выходом из сессии."
 fi
 
@@ -305,9 +303,7 @@ echo "  SSH порт:        $SSH_PORT"
 echo "  Открытые порты:  $ALLOW_PORTS"
 echo "  Fail2Ban:        бан 1 ч после 3 неудачных попыток за 10 мин (порт $SSH_PORT)"
 echo "  Новый пользователь: $NEW_USER"
-if [[ "$PASSWORD_CHOICE" != "2" ]]; then
-    echo "  Пароль:          $NEW_PASSWORD"
-fi
+[[ "$PASSWORD_CHOICE" != "2" ]] && echo "  Пароль:          $NEW_PASSWORD"
 echo ""
 log_warn "Вход под root отключён. Входите как $NEW_USER на порт $SSH_PORT."
 log_warn "Фаервол: разрешены только порты $ALLOW_PORTS, остальные закрыты."
