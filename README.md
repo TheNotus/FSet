@@ -7,5 +7,3 @@
 ```bash
 curl -fsSL "https://raw.githubusercontent.com/TheNotus/FSet/main/server-setup.sh" | sudo bash
 ```
-
-После завершения **не закрывайте текущую SSH-сессию**: сначала откройте новое окно терминала и проверьте вход под новым пользователем на новом порту.
